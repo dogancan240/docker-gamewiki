@@ -1,32 +1,34 @@
-# Use the official PHP image with Apache
+# Use an official PHP image with Apache and necessary extensions
 FROM php:8.1-apache
 
-# Install necessary extensions for MongoDB
+# Install system dependencies and MongoDB extension
 RUN apt-get update && apt-get install -y \
-    libcurl4-openssl-dev pkg-config libssl-dev unzip git \
+    libssl-dev \
+    git \
+    unzip \
     && pecl install mongodb \
     && docker-php-ext-enable mongodb
 
-# Enable mod_rewrite for Apache (for clean URLs)
+# Enable Apache mod_rewrite
 RUN a2enmod rewrite
-
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# Copy your project files into the container
-COPY . /var/www/html
 
 # Set the working directory
 WORKDIR /var/www/html
 
-# Install Composer dependencies
+# Copy composer and install dependencies
+COPY composer.json composer.lock /var/www/html/
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 RUN composer install --no-dev --optimize-autoloader
 
-# Set permissions for web server
-RUN chown -R www-data:www-data /var/www/html
+# Copy the application code
+COPY . /var/www/html/
 
-# Expose the default HTTP port (80)
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
+
+# Expose the port for the web server
 EXPOSE 80
 
-# Set the default command to start Apache
+# Start Apache
 CMD ["apache2-foreground"]
